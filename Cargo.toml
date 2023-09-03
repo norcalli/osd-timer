@@ -1,0 +1,28 @@
+[package]
+name = "nvide"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[patch.crates-io]
+macroquad = { path = "3rd/macroquad" }
+
+
+[dependencies]
+bumpalo = "3.13.0"
+# macroquad = { version = "0.4.2", features = ["log"], path = "vendor/macroquad" }
+macroquad = { version = "0.4.2", default-features = false, path = "3rd/macroquad" }
+macroquad-profiler = "0.2.0"
+macroquad-text = { version = "0.1.1", path = "3rd/macroquad-text" }
+macroquad_grid = { version = "0.1.1", path = "3rd/macroquad_grid" }
+static_init = "1.0.3"
+ufmt = "0.2.0"
+# macroquad-text = "0.1.1"
+
+[profile.release]
+lto = true
+strip = true  # Automatically strip symbols from the binary.
+codegen-units = 1
+panic = "abort"
+
