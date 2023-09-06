@@ -3,10 +3,9 @@
 // it would be nice if it remembered what it was doing
 
 // simple ass struct, doesn't even have no impl
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct Cell {
     pub color: Option<macroquad::color::Color>,
-    pub text: Option<String>,
-    pub text_color: Option<macroquad::color::Color>
+    pub text: String,
+    pub text_color: Option<macroquad::color::Color>,
 }
-

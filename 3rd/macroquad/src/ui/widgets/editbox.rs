@@ -17,7 +17,7 @@ pub struct Editbox<'a> {
 
 mod text_editor;
 
-use text_editor::EditboxState;
+pub use text_editor::EditboxState;
 
 const LEFT_MARGIN: f32 = 2.;
 
@@ -68,7 +68,7 @@ impl<'a> Editbox<'a> {
         }
     }
 
-    fn apply_keyboard_input(
+    pub fn apply_keyboard_input(
         &self,
         input_buffer: &mut Vec<InputCharacter>,
         clipboard: &mut dyn crate::ui::ClipboardObject,

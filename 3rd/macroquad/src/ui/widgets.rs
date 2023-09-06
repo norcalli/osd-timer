@@ -17,7 +17,7 @@ mod window;
 pub use button::Button;
 pub use checkbox::Checkbox;
 pub use combobox::ComboBox;
-pub use editbox::Editbox;
+pub use editbox::{Editbox, EditboxState};
 pub use group::{Group, GroupToken};
 pub use input::InputText;
 pub use label::Label;

@@ -26,6 +26,7 @@ pub use clipboard::ClipboardObject;
 pub use input_handler::{InputHandler, KeyCode};
 pub use render::{DrawList, Vertex};
 pub use style::{Skin, Style, StyleBuilder};
+pub use ui_context::ClipboardObject as GlobalClipboardObject;
 
 pub use crate::hash;
 
@@ -83,7 +84,7 @@ use cursor::Cursor;
 use input::Input;
 
 pub use cursor::Layout;
-use input::{InputCharacter, Key};
+pub use input::{InputCharacter, Key};
 
 /// Is used to keep track of internal state of various widgets like [widgets::Window](macroquad::ui::widgets::Window)
 /// These should be unique per window and ideally not change in between frames.

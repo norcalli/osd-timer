@@ -18,7 +18,7 @@ pub use position::Position;
 /// methods (mainly getters and setters)
 ///
 /// ## stuff you can do
-/// 
+///
 /// - creating a grid
 /// - selecting a cell
 /// - changing selected cells color
@@ -31,17 +31,18 @@ pub use position::Position;
 /// - getting the selected cell's index
 /// - drawing the grid
 pub struct Grid {
-    width: f32,                   // width of the grid in pixels
-    height: f32,                  // height of the grid in pixels
+    pub width: f32,               // width of the grid in pixels
+    pub height: f32,              // height of the grid in pixels
     x_offset: position::Position, // for positioning the grid on the screen
     y_offset: position::Position, // for positioning the grid on the screen
 
+    pub auto_resize_text: bool,
     width_cells: usize,                     // number of cells
     height_cells: usize,                    // number of cells
     cell_bg_color: macroquad::color::Color, // color of the cells
 
-    gap: f32, // space between cells (in pixels)
-    gap_color: macroquad::color::Color,
+    pub gap: f32, // space between cells (in pixels)
+    pub gap_color: macroquad::color::Color,
 
     // is a vec really needed here? how use const bro
     cells: Vec<Vec<cell::Cell>>,
@@ -78,7 +79,35 @@ impl Default for Grid {
                 .collect(),
             x_offset: position::Position::default(),
             y_offset: position::Position::default(),
+            auto_resize_text: true,
         }
+    }
+}
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+pub struct Dimensions {
+    pub rows: usize,
+    pub cols: usize,
+}
+
+impl Dimensions {
+    pub fn max(self, other: Self) -> Self {
+        Self {
+            rows: self.rows.max(other.rows),
+            cols: self.cols.max(other.cols),
+        }
+    }
+    pub fn from_wh(width: usize, height: usize) -> Self {
+        Self {
+            rows: height,
+            cols: width,
+        }
+    }
+    pub fn width(&self) -> usize {
+        self.cols
+    }
+    pub fn height(&self) -> usize {
+        self.rows
     }
 }
 
@@ -93,23 +122,52 @@ impl Grid {
         self.y_offset = y_offset;
     }
 
+    pub fn resize(&mut self, width: impl Into<Option<usize>>, height: impl Into<Option<usize>>) {
+        let width = width.into().unwrap_or(self.width_cells);
+        let height = height.into().unwrap_or(self.height_cells);
+        if Dimensions::from_wh(width, height) != self.dimensions() {
+            self.cells
+                .resize_with(height, || vec![Default::default(); width]);
+            for row in self.cells.iter_mut() {
+                row.resize_with(width, Default::default);
+            }
+            self.width_cells = width;
+            self.height_cells = height;
+        }
+    }
+
+    pub fn dimensions(&self) -> Dimensions {
+        Dimensions::from_wh(self.width_cells, self.height_cells)
+    }
+
+    pub fn rows(&self) -> usize {
+        self.height_cells
+    }
+    pub fn cols(&self) -> usize {
+        self.width_cells
+    }
+    pub fn height(&self) -> usize {
+        self.height_cells
+    }
+    pub fn width(&self) -> usize {
+        self.width_cells
+    }
+
     /// # create a grid
     ///
     /// ## problems
     ///
-    /// there are a shit ton of feilds and I wanted the new function 
+    /// there are a shit ton of feilds and I wanted the new function
     /// to not have a trillion args.
-    /// It is "normal" (more like intended) to create a new Grid and then call a bunch of setters to customize it 
+    /// It is "normal" (more like intended) to create a new Grid and then call a bunch of setters to customize it
     /// to your liking
     pub fn new(width: f32, height: f32, x_cells: usize, y_cells: usize, gap: f32) -> Self {
-        const WIDTH: i32 = 10;
-        const HEIGHT: i32 = 10;
         Grid {
             width,
             height,
             width_cells: x_cells,
             height_cells: y_cells,
-            cell_bg_color: RED,
+            cell_bg_color: WHITE,
             gap,
             gap_color: BLACK,
             selected_cell: None,
@@ -117,10 +175,10 @@ impl Grid {
             // ignore the HORRID line below this comment
             // it just makes a 2D list of cell::default's
             // there are HEIGHT inner lists and they all have WIDTH elements
-            cells: (0..HEIGHT)
+            cells: (0..y_cells)
                 .into_iter()
                 .map(|_| {
-                    (0..WIDTH)
+                    (0..x_cells)
                         .into_iter()
                         .map(|_| cell::Cell::default())
                         .collect::<Vec<_>>()
@@ -128,6 +186,7 @@ impl Grid {
                 .collect(),
             x_offset: position::Position::default(),
             y_offset: position::Position::default(),
+            auto_resize_text: true,
         }
     }
 
@@ -137,8 +196,9 @@ impl Grid {
         let total_x_gap_space = (self.width_cells + 1) as f32 * self.gap;
         let total_y_gap_space = (self.height_cells + 1) as f32 * self.gap;
 
-        let cell_width = (self.width - total_x_gap_space as f32) / self.width_cells as f32;
-        let cell_height = (self.height - total_y_gap_space as f32) / self.height_cells as f32;
+        let cell_width = (self.width - total_x_gap_space as f32).max(0.0) / self.width_cells as f32;
+        let cell_height =
+            (self.height - total_y_gap_space as f32).max(0.0) / self.height_cells as f32;
 
         (cell_width, cell_height)
     }
@@ -149,18 +209,19 @@ impl Grid {
     /// loop or something like that
     pub fn draw(&self) {
         // draw background (the gap color)
-        let x_offset = position::as_pixels(self.x_offset, self.width, screen_width());
-        let y_offset = position::as_pixels(self.y_offset, self.height, screen_height());
+        let x_offset = self.x_offset.as_pixels(self.width, screen_width());
+        let y_offset = self.y_offset.as_pixels(self.height, screen_height());
         draw_rectangle(x_offset, y_offset, self.width, self.height, self.gap_color);
 
         // draw cells
         let (cell_width, cell_height) = self.calculate_dimensions();
 
-        for i in 0..self.height_cells {
-            for j in 0..self.width_cells {
-                self.draw_cell(i, j, cell_width, cell_height, x_offset, y_offset);
+        for row in 0..self.height_cells {
+            for col in 0..self.width_cells {
+                self.draw_cell(row, col, cell_width, cell_height, x_offset, y_offset);
             }
         }
+        // draw_rectangle_lines(x_offset, y_offset, self.width, self.height, 1.0, BLACK);
     }
 
     // only called from the double for loop in the draw function
@@ -202,17 +263,70 @@ impl Grid {
         draw_rectangle(x_pos, y_pos, cell_width, cell_height, color);
 
         // draw the text if this cell has any
-        if let Some(text) = &self.cells[row][col].text {
+        let text = &self.cells[row][col].text;
+        if !text.is_empty() {
             // shifted because read the readme
             let y_pos = y_pos + cell_height;
 
             // center the text or something idk
-            let text_dim = macroquad::text::measure_text(text, None, cell_height as u16, 1.0); // 1.0 is default
-            let centered_x = (cell_width - text_dim.width) / 2.0 + x_pos;
-            let centered_y = y_pos - (cell_height - text_dim.height) / 2.0;
+            let mut cell_height = cell_height;
+            let mut text = text.as_str();
+            loop {
+                let text_dim = macroquad::text::measure_text(text, None, cell_height as u16, 1.0); // 1.0 is default
+                if self.auto_resize_text && text_dim.width > cell_width {
+                    cell_height *= cell_width / text_dim.width * 0.9;
+                    continue;
+                } else if text_dim.width > cell_width {
+                    let char_count = text.chars().count();
+                    let mut it = text.chars();
+                    for _ in 0..(char_count as f32 * cell_width / text_dim.width) as usize {
+                        it.next();
+                    }
+                    text = &text[..text.len() - it.as_str().len()];
+                    continue;
+                }
+                let centered_x = (cell_width - text_dim.width) / 2.0 + x_pos;
+                let centered_y = y_pos - (cell_height - text_dim.height) / 2.0;
 
-            draw_text(text, centered_x, centered_y, cell_height, BLACK);
+                draw_text(text, centered_x, centered_y, cell_height, BLACK);
+                break;
+            }
         }
+        // draw_rectangle_lines(x_pos, y_pos, cell_width, cell_height, 1.0, BLACK);
+    }
+
+    pub fn select_from_mouse(&mut self) -> Option<(usize, usize)> {
+        let result = self.mouse_hovered_cell();
+        self.select_cell(result);
+        result
+    }
+
+    pub fn mouse_hovered_cell(&mut self) -> Option<(usize, usize)> {
+        self.translate_click(mouse_position().into())
+    }
+
+    pub fn translate_click(&self, pos: Vec2) -> Option<(usize, usize)> {
+        let x_offset = position::as_pixels(self.x_offset, self.width, screen_width());
+        let y_offset = position::as_pixels(self.y_offset, self.height, screen_height());
+
+        let rect = Rect {
+            x: x_offset,
+            y: y_offset,
+            w: self.width,
+            h: self.height,
+        };
+        if !rect.contains(pos) {
+            return None;
+        }
+        let (cell_width, cell_height) = self.calculate_dimensions();
+        // for row in 0..self.height_cells {
+        //     for col in 0..self.width_cells {
+        //         self.draw_cell(row, col, cell_width, cell_height, x_offset, y_offset);
+        //     }
+        // }
+        let col = (pos.x - (x_offset + self.gap)) / (cell_width + self.gap as f32);
+        let row = (pos.y - (y_offset + self.gap)) / (cell_height + self.gap as f32);
+        Some((row as usize, col as usize))
     }
 
     /// # select a cell
@@ -274,7 +388,11 @@ impl Grid {
         // map value to string
         let t = text.map(|val| val.to_string());
         // set value
-        self.cells[row][col].text = t;
+        self.cells[row][col].text = t.unwrap_or_default();
+    }
+
+    pub fn cell_text_mut(&mut self, row: usize, col: usize) -> &mut String {
+        &mut self.cells[row][col].text
     }
 
     /// same as set_cell_text
@@ -286,16 +404,16 @@ impl Grid {
     /// if there is no selected cell, this
     /// method does nothing
     ///
-    /// ## panics 
+    /// ## panics
     ///
-    /// if the selected cell happens to be out of bounds, 
+    /// if the selected cell happens to be out of bounds,
     /// this function panics
     pub fn set_selected_cell_text<T>(&mut self, text: Option<T>)
     where
         T: ToString,
     {
         // only do something if there is a selected cell
-        if let Some( (row, col) ) = self.get_selected_cell_index() {
+        if let Some((row, col)) = self.get_selected_cell_index() {
             self.set_cell_text(row, col, text);
         }
     }

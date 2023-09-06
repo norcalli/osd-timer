@@ -1,5 +1,5 @@
 [package]
-name = "nvide"
+name = "osd-timer"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,17 +7,22 @@ edition = "2021"
 
 [patch.crates-io]
 macroquad = { path = "3rd/macroquad" }
+miniquad = { path = "3rd/miniquad" }
 
 
 [dependencies]
-bumpalo = "3.13.0"
+bumpalo = { version = "3.13.0", features = ["collections"] }
 # macroquad = { version = "0.4.2", features = ["log"], path = "vendor/macroquad" }
 macroquad = { version = "0.4.2", default-features = false, path = "3rd/macroquad" }
+miniquad = { version = "0.4.0-alpha.6", path = "3rd/miniquad" }
 macroquad-profiler = "0.2.0"
 macroquad-text = { version = "0.1.1", path = "3rd/macroquad-text" }
 macroquad_grid = { version = "0.1.1", path = "3rd/macroquad_grid" }
 static_init = "1.0.3"
 ufmt = "0.2.0"
+chrono = { version = "0.4.29", features = ["serde"] }
+serde_qs = "0.12.0"
+serde = { version = "1.0.188", features = ["derive"] }
 # macroquad-text = "0.1.1"
 
 [profile.release]
