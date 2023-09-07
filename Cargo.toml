@@ -16,10 +16,10 @@ bumpalo = { version = "3.13.0", features = ["collections"] }
 macroquad = { version = "0.4.2", default-features = false, path = "3rd/macroquad" }
 miniquad = { version = "0.4.0-alpha.6", path = "3rd/miniquad" }
 macroquad-profiler = "0.2.0"
-macroquad-text = { version = "0.1.1", path = "3rd/macroquad-text" }
+# macroquad-text = { version = "0.1.1", path = "3rd/macroquad-text" }
 macroquad_grid = { version = "0.1.1", path = "3rd/macroquad_grid" }
 static_init = "1.0.3"
-ufmt = "0.2.0"
+# ufmt = "0.2.0"
 chrono = { version = "0.4.29" }
 kmacros = "6.1.0"
 # serde_qs = "0.12.0"
