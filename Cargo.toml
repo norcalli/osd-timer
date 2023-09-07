@@ -20,9 +20,10 @@ macroquad-text = { version = "0.1.1", path = "3rd/macroquad-text" }
 macroquad_grid = { version = "0.1.1", path = "3rd/macroquad_grid" }
 static_init = "1.0.3"
 ufmt = "0.2.0"
-chrono = { version = "0.4.29", features = ["serde"] }
-serde_qs = "0.12.0"
-serde = { version = "1.0.188", features = ["derive"] }
+chrono = { version = "0.4.29" }
+kmacros = "6.1.0"
+# serde_qs = "0.12.0"
+# serde = { version = "1.0.188", features = ["derive"] }
 # macroquad-text = "0.1.1"
 
 [profile.release]

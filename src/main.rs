@@ -43,31 +43,96 @@ fn window_conf() -> Conf {
     }
 }
 
-pub fn default_time_format() -> String {
-    "%T%.3f".to_string()
+pub trait Arg {
+    fn from_string(&mut self, s: String) -> Result<(), String>;
 }
 
-pub fn default_window_width() -> usize {
-    800
-}
-pub fn default_window_height() -> usize {
-    200
+macro_rules! impl_arg {
+    ($($ty:ty),+) => {
+        $(
+        impl Arg for $ty {
+            fn from_string(&mut self, s: String) -> Result<(), String> {
+                *self = s.parse::<$ty>().map_err(|s| format!("{s:?}"))?;
+                Ok(())
+            }
+        }
+        )+
+    };
 }
 
-#[derive(serde::Deserialize, Debug, Clone)]
+impl_arg! {
+    String, usize, chrono::DateTime<Local>, bool
+}
+
+impl<T> Arg for Vec<T>
+where
+    T: Arg,
+    T: Default,
+{
+    fn from_string(&mut self, s: String) -> Result<(), String> {
+        let mut x = T::default();
+        x.from_string(s)?;
+        self.push(x);
+        Ok(())
+    }
+}
+
+#[derive(kmacros::FieldIter, Debug, Clone)]
+#[field_iter(parse_iter_mut = "dyn Arg")]
 pub struct Options {
-    #[serde(default = "default_time_format")]
     pub time_format: String,
-    #[serde(default = "default_window_width")]
     pub window_width: usize,
-    #[serde(default = "default_window_height")]
     pub window_height: usize,
-    #[serde(default)]
-    pub deadline: Option<chrono::DateTime<Local>>,
+    pub deadline: Vec<chrono::DateTime<Local>>,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            time_format: "%T%.3f".to_string(),
+            window_width: 800,
+            window_height: 200,
+            deadline: vec![],
+        }
+    }
+}
+
+fn parse_args() -> Options {
+    let mut result = Options::default();
+    let mut it = std::env::args().skip(1);
+    while let Some(arg) = it.next() {
+        let arg = arg.strip_prefix("--").unwrap_or(&arg);
+        let found = result
+            .parse_iter_mut(|name, opt| {
+                if arg == name {
+                    let param = if arg.starts_with("flag_") {
+                        "true".to_string()
+                    } else {
+                        it.next().unwrap_or_else(|| {
+                            eprintln!("Missing arg for {name}");
+                            std::process::exit(1)
+                        })
+                    };
+                    opt.from_string(param).unwrap_or_else(|err| {
+                        eprintln!("Failed to parse arg for {name}: {err}");
+                        std::process::exit(1)
+                    });
+                    return Some(());
+                }
+                None
+            })
+            .is_some();
+        if !found {
+            eprintln!("Unknown parameter {arg:?}");
+            std::process::exit(1);
+        }
+    }
+    eprintln!("{result:#?}");
+    result
 }
 
 #[dynamic]
-static OPTIONS: Options = serde_qs::from_str(&std::env::args().nth(1).unwrap_or_default()).unwrap();
+static OPTIONS: Options = parse_args();
 
 #[macroquad::main(window_conf)]
 async fn main() {
@@ -75,7 +140,7 @@ async fn main() {
     let mut grid = Grid::new(
         screen_width(),
         screen_height(),
-        2 + OPTIONS.deadline.is_some() as usize,
+        2 + OPTIONS.deadline.len(),
         1,
         5.0,
     );
@@ -200,7 +265,7 @@ async fn main() {
             });
             grid.set_cell_text(0, 1, Some(bumpalo::format!(in &arena, "{}", fmt)));
         }
-        if let Some(deadline) = OPTIONS.deadline {
+        for (deadline_index, deadline) in OPTIONS.deadline.iter().enumerate() {
             let duration = deadline
                 .signed_duration_since(Local::now())
                 .to_std()
@@ -219,7 +284,11 @@ async fn main() {
                 }
                 write!(f, " {secs}s")
             });
-            grid.set_cell_text(0, 2, Some(bumpalo::format!(in &arena, "{}", fmt)));
+            grid.set_cell_text(
+                0,
+                2 + deadline_index,
+                Some(bumpalo::format!(in &arena, "{}", fmt)),
+            );
         }
         grid.draw();
         // draw_text_ex(
