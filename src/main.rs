@@ -61,7 +61,7 @@ macro_rules! impl_arg {
 }
 
 impl_arg! {
-    String, usize, chrono::DateTime<Local>, bool
+    String, usize, bool
 }
 
 impl<T> Arg for Vec<T>
@@ -73,6 +73,30 @@ where
         let mut x = T::default();
         x.from_string(s)?;
         self.push(x);
+        Ok(())
+    }
+}
+
+impl Arg for chrono::DateTime<Local> {
+    fn from_string(&mut self, s: String) -> Result<(), String> {
+        *self = s
+            .parse::<chrono::DateTime<Local>>()
+            .or_else(|_err| -> Result<_, String> {
+                let t = s
+                    .parse::<chrono::NaiveDateTime>()
+                    .map_err(|s| format!("{s}"))?;
+                let t = t.and_local_timezone(Local).unwrap();
+                Ok(t)
+            })
+            .or_else(|_err| -> Result<_, String> {
+                let t = s.parse::<chrono::NaiveTime>().map_err(|s| format!("{s}"))?;
+                let t = chrono::Local::now()
+                    .date_naive()
+                    .and_time(t)
+                    .and_local_timezone(Local)
+                    .unwrap();
+                Ok(t)
+            })?;
         Ok(())
     }
 }
@@ -136,7 +160,6 @@ static OPTIONS: Options = parse_args();
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let mut arena = bumpalo::Bump::new();
     let mut grid = Grid::new(
         screen_width(),
         screen_height(),
@@ -159,11 +182,13 @@ async fn main() {
     }
     let mut commands = HashSet::new();
     'outer: loop {
-        arena.reset();
         clear_background(WHITE);
         set_default_camera();
-        let ts = chrono::Local::now().format(&OPTIONS.time_format);
-        grid.set_cell_text(0, 0, Some(ts));
+        grid.set_cell_text(
+            0,
+            0,
+            Some(chrono::Local::now().format(&OPTIONS.time_format)),
+        );
         (grid.width, grid.height) = (screen_width(), screen_height());
         if grid.mouse_hovered_cell() == Some((0, 1)) {
             if is_mouse_button_pressed(MouseButton::Left) {
@@ -249,7 +274,7 @@ async fn main() {
         // }.max(min_size);
         let current_elapsed = timer_total + timer_start.map(|ts| ts.elapsed()).unwrap_or_default();
         {
-            let fmt = fmt::FmtFn(|f| {
+            let content = fmt::FmtFn(|f| {
                 let mut secs = current_elapsed.as_secs();
                 let hours = secs / 3600;
                 secs -= hours * 3600;
@@ -263,14 +288,14 @@ async fn main() {
                 }
                 write!(f, " {secs}.{:03}s", current_elapsed.as_millis() % 1000)
             });
-            grid.set_cell_text(0, 1, Some(bumpalo::format!(in &arena, "{}", fmt)));
+            grid.set_cell_text(0, 1, Some(content));
         }
         for (deadline_index, deadline) in OPTIONS.deadline.iter().enumerate() {
             let duration = deadline
                 .signed_duration_since(Local::now())
                 .to_std()
                 .unwrap_or_default();
-            let fmt = fmt::FmtFn(|f| {
+            let content = fmt::FmtFn(|f| {
                 let mut secs = duration.as_secs();
                 let hours = secs / 3600;
                 secs -= hours * 3600;
@@ -284,11 +309,7 @@ async fn main() {
                 }
                 write!(f, " {secs}s")
             });
-            grid.set_cell_text(
-                0,
-                2 + deadline_index,
-                Some(bumpalo::format!(in &arena, "{}", fmt)),
-            );
+            grid.set_cell_text(0, 2 + deadline_index, Some(content));
         }
         grid.draw();
         // draw_text_ex(
